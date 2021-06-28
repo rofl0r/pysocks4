@@ -21,6 +21,10 @@
 
 import socket, select
 
+def _format_addr(addr):
+        ip, port = addr
+        return "%s:%d"%(ip, port)
+
 def _isnumericipv4(ip):
 	try:
 		a,b,c,d = ip.split('.')
@@ -166,12 +170,13 @@ def socks4_client_thread(c, evt_done):
 	evt_done.set()
 
 if __name__ == "__main__":
-	import threading
+	import threading, sys
 	ss = Socks4Srv('0.0.0.0', 1080)
 	ss.setup()
 	client_threads = []
 	while True:
 		c = ss.wait_client()
+		sys.stdout.write("[%d] %s\n"%(c.conn.fileno(), _format_addr(c.addr)))
 		evt_done = threading.Event()
 		cthread = threading.Thread(target=socks4_client_thread, args=(c,evt_done))
 		cthread.daemon = True
