@@ -2,12 +2,13 @@ pysocks4
 ========
 
 tiny, multi-threaded socks4a server implemented in python2.
+works with py3 too.
 no external dependencies.
 
 usage
 -----
 
-python2 socks4.py
+python socks4.py
 
 will start a socks4 server on interface 0.0.0.0 listening on port 1080.
 

@@ -19,11 +19,28 @@
 # https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 
-import socket, select
+import socket, select, sys
+
+PY3 = sys.version_info[0] == 3
+if PY3:
+	def _ord(x):
+		return x
+	def _b(a, b):
+		return bytes(a, b)
+	def _byte(s, pos):
+		return s[pos:pos+1]
+else:
+	def _ord(x):
+		return ord(x)
+	def _b(a, b):
+		return bytes(a)
+	def _byte(s, pos):
+		return s[pos]
 
 def _format_addr(addr):
-        ip, port = addr
-        return "%s:%d"%(ip, port)
+	ip, port = addr
+	ip = _b(ip, 'utf-8')
+	return b"%s:%d"%(ip, port)
 
 def _isnumericipv4(ip):
 	try:
@@ -64,20 +81,19 @@ class Socks4Client():
 			self.disconnect()
 			return
 
-		ver  = ord(pkt[0])
-		meth = ord(pkt[1])
+		ver  = _ord(pkt[0])
+		meth = _ord(pkt[1])
 
 		if ver != 4 or meth != 1:
-			return self.fail("\x5b")
+			return self.fail(b"\x5b")
 
-		port = ord(pkt[2]) * 256 + ord(pkt[3])
-		ip   = "%d.%d.%d.%d"%( ord(pkt[4]), ord(pkt[5]), ord(pkt[6]), ord(pkt[7]) )
+		port = _ord(pkt[2]) * 256 + _ord(pkt[3])
+		ip   = b"%d.%d.%d.%d"%( _ord(pkt[4]), _ord(pkt[5]), _ord(pkt[6]), _ord(pkt[7]) )
 		hostname = ip
 
-		user = ''
-		ch = pkt[8]
-
-		while ord(ch) != 0:
+		user = b''
+		ch = _byte(pkt, 8)
+		while ch != b'\0':
 			try:
 				ch = self.conn.recv(1)
 				user += ch
@@ -86,10 +102,10 @@ class Socks4Client():
 				return
 
 		support_socks4a = True
-		if support_socks4a and ord(pkt[4]) == 0 and ord(pkt[5]) == 0 and ord(pkt[6]) == 0:
-			hostname = ''
-			ch = 'x'
-			while ord(ch) != 0:
+		if support_socks4a and _ord(pkt[4]) == 0 and _ord(pkt[5]) == 0 and _ord(pkt[6]) == 0:
+			hostname = b''
+			ch = b'x'
+			while ch != b'\0':
 				try:
 					ch = self.conn.recv(1)
 					hostname += ch
@@ -98,19 +114,19 @@ class Socks4Client():
 
 		try:
 			af, sa = _resolve(hostname, port)
-		except socket.gaierror: return self.fail("\x5b")
+		except socket.gaierror: return self.fail(b"\x5b")
 		try:
 			x = af+1
 		except TypeError:
 			try:
 				af, sa = _resolve(hostname, port, False)
 				x = af+1
-			except:	return self.fail("\x5b")
+			except:	return self.fail(b"\x5b")
 		sock = socket.socket(af, socket.SOCK_STREAM)
 		sock.settimeout(15)
 		try: sock.connect((sa[0], sa[1]))
-		except: return self.fail("\x5b")
-		try: self.send("\0\x5a\0\0\0\0\0\0")
+		except: return self.fail(b"\x5b")
+		try: self.send(b"\0\x5a\0\0\0\0\0\0")
 		except: return self.disconnect()
 		fds = self.conn
 		fdc = sock
@@ -127,7 +143,7 @@ class Socks4Client():
 
 	def _send_i(self, data):
 		self.conn.send(data)
-		if self.debugreq and len(data): print ">>>\n", data
+		if self.debugreq and len(data): print(b">>>\n", data)
 
 	def send(self, data):
 		try:
@@ -136,7 +152,7 @@ class Socks4Client():
 			self.disconnect()
 
 	def fail(self, code):
-		self.send("\0%c\0\0\0\0\0\0"%code)
+		self.send(b"\0%c\0\0\0\0\0\0"%code)
 		self.disconnect()
 
 	def disconnect(self):
